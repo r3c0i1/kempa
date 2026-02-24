@@ -1,17 +1,51 @@
-# kempa
+# Kempa
 
-A new Flutter project.
+Modern open-source mobile client for Kemerovo State University.
 
-## Getting Started
+Kempa is a lightweight, clean and fast alternative to the official university app.  
+Built with Flutter using clean architecture principles.
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## ✨ Features (MVP)
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- ✅ Secure authentication
+- ✅ Academic structure
+- ✅ Dynamic schedule foundation
+- ✅ Role-based support (student / teacher)
+- ✅ Clean architecture (data / domain / presentation)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+
+## 📦 Tech Stack
+
+- Flutter
+- BLoC
+- Dio
+- GetIt (DI)
+- json_serializable
+- GoRouter
+
+---
+
+## 🚧 Roadmap
+
+### Phase 1 — Foundation ✅
+- [x] Authentication with refresh token
+- [x] Interceptor & error handling
+- [x] Clean project structure
+- [x] Academic module (faculties & groups)
+
+### Phase 2 — Core Functionality 🚀
+- [ ] Student schedule
+- [ ] Teacher schedule
+- [ ] Current group context
+- [ ] Week switching
+
+### Phase 3 — User Experience
+- [ ] Offline caching
+- [ ] Pull-to-refresh
+- [ ] Error state improvements
+- [ ] Dark theme polish
+
+---
