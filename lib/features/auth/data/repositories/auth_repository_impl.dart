@@ -21,6 +21,7 @@ class AuthRepositoryImpl implements AuthRepository {
         access: response.accessToken!,
         refresh: response.refreshToken!,
       );
+      await tokenManager.saveCredentials(login: login, password: password);
       if (response.userInfo != null) {
         await localDataSource.cacheUser(response.userInfo!);
       }
@@ -37,7 +38,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> logout() async {
-    await tokenManager.clearTokens();
+    await tokenManager.clearAll();
     await localDataSource.clear();
   }
   
