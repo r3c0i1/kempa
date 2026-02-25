@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kempa/core/debug/debug_overlay.dart';
 import 'package:kempa/core/di/injection_container.dart' as di;
 import 'package:kempa/core/router/app_router.dart';
 import 'package:kempa/core/theme/app_theme.dart';
@@ -57,6 +58,9 @@ class _KempaAppState extends State<KempaApp> {
             darkTheme: isSystem ? AppTheme.dark : null,
             themeMode: isSystem ? ThemeMode.system : ThemeMode.light,
             routerConfig: _router,
+            builder: (context, child) {
+              return DebugOverlay(child: child!);
+            },
           );
         },
       ),

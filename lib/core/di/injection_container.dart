@@ -48,6 +48,7 @@ Future<void> init() async {
     () => AuthRepositoryImpl(
       remoteDataSource: sl(),
       localDataSource: sl(),
+      tokenManager: sl()
     ),
   );
 

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:kempa/core/network/token_manager.dart';
 
 class ApiClient {
@@ -14,6 +15,8 @@ class ApiClient {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = await _tokenManager.getAccessToken();
+        debugPrint('TOKEN: ${token != null ? "exists" : "NULL"}');
+        debugPrint('PATH: ${options.path}');
         if (token != null) options.headers['x-access-token'] = token;
         return handler.next(options);
       },
