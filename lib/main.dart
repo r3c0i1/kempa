@@ -58,9 +58,9 @@ class _KempaAppState extends State<KempaApp> {
             darkTheme: isSystem ? AppTheme.dark : null,
             themeMode: isSystem ? ThemeMode.system : ThemeMode.light,
             routerConfig: _router,
-            builder: (context, child) {
-              return DebugOverlay(child: child!);
-            },
+            // builder: (context, child) {
+            //   return DebugOverlay(child: child!);
+            // },
           );
         },
       ),
