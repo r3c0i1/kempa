@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kempa/core/layout/main_layout.dart';
 import 'package:kempa/features/auth/presentation/pages/splash_screen.dart';
+import 'package:kempa/features/auth/presentation/pages/two_factor_page.dart';
 import 'package:kempa/features/profile/presentation/pages/profile_page.dart';
 import 'package:kempa/features/profile/presentation/pages/settings_page.dart';
 import 'package:kempa/features/schedule/presentation/pages/schedule_page.dart';
@@ -54,6 +55,10 @@ class AppRouter {
         return authState is AuthSuccess ? '/schedule' : '/login';
       }
 
+      if (authState is AuthRequiresTwoFactor && location != '/two-factor') {
+        return "/two-factor";
+      }
+
       final isLoggedIn = authState is AuthSuccess;
       final isOnLogin = location == '/login';
 
@@ -71,7 +76,7 @@ class AppRouter {
     routes: [
       GoRoute(path: '/splash', builder: (context, state) => SplashPage()),
       GoRoute(path: '/login', builder: (context, state) => LoginPage()),
-      // GoRoute(path: '/schedule', builder: (context, state) => SchedulePage()),
+      GoRoute(path: "/two-factor", builder: (context, state) => TwoFactorPage()),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => MainLayout(child: child),

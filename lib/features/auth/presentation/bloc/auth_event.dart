@@ -20,3 +20,12 @@ class AuthCheckRequested extends AuthEvent {}
 class LogoutRequested extends AuthEvent {}
 
 class AuthUpdateRequested extends AuthEvent {}
+
+class TwoFactorCodeSubmitted extends AuthEvent {
+  final String code;
+
+  TwoFactorCodeSubmitted(this.code);
+
+  @override
+  List<Object?> get props => [code];
+}

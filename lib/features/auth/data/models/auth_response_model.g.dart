@@ -52,6 +52,7 @@ AuthResponseModel _$AuthResponseModelFromJson(Map<String, dynamic> json) =>
       userInfo: json['userInfo'] == null
           ? null
           : UserInfoModel.fromJson(json['userInfo'] as Map<String, dynamic>),
+      twoFactorAuthEnabled: json['twoFactorAuthEnabled'] as bool?,
     );
 
 Map<String, dynamic> _$AuthResponseModelToJson(AuthResponseModel instance) =>
@@ -60,4 +61,5 @@ Map<String, dynamic> _$AuthResponseModelToJson(AuthResponseModel instance) =>
       'accessToken': instance.accessToken,
       'refreshToken': instance.refreshToken,
       'userInfo': instance.userInfo,
+      'twoFactorAuthEnabled': instance.twoFactorAuthEnabled,
     };
