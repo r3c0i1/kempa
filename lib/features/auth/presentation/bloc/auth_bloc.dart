@@ -1,8 +1,10 @@
-import 'package:dio/dio.dart';
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:kempa/features/auth/domain/exceptions/auth_invalid_credentials_exception.dart';
 import 'package:kempa/features/auth/domain/exceptions/two_factor_required_exception.dart';
+import 'package:kempa/features/auth/domain/repositories/auth_repository.dart';
 import 'package:kempa/features/auth/domain/usecases/auth_by_code_usecase.dart';
-import 'package:kempa/features/auth/domain/usecases/auth_update_usecase.dart';
 import 'package:kempa/features/auth/domain/usecases/check_auth_usecase.dart';
 import 'package:kempa/features/auth/domain/usecases/logout_usecase.dart';
 import 'auth_event.dart';
@@ -13,90 +15,136 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LoginUseCase loginUseCase;
   final CheckAuthUsecase checkAuthUsecase;
   final LogoutUsecase logoutUsecase;
-  final AuthUpdateUseCase authUpdateUseCase;
   final AuthByCodeUsecase authByCodeUseCase;
 
+  final AuthRepository authRepository;
+  StreamSubscription? _twoFactorSub;
+
   AuthBloc({
+    required this.authRepository,
     required this.loginUseCase,
     required this.checkAuthUsecase,
     required this.logoutUsecase,
-    required this.authUpdateUseCase,
     required this.authByCodeUseCase
-  }) : super(AuthInitial()) {
-    
-    // Обработка входа
-    on<LoginRequested>((event, emit) async {
-      emit(AuthLoading());
-      try {
-        final user = await loginUseCase.execute(event.login, event.password);
-        emit(AuthSuccess(user));
-      } catch (e) {
-        if (e is TwoFactorRequiredException) {
-          emit(AuthRequiresTwoFactor(login: event.login, password: event.password));
-          return;
-        }
-        final errorMessage = e.toString().replaceAll('Exception: ', '');
-        emit(AuthFailure(errorMessage));
-      }
+  }) : super(AuthInitialState()) {
+    _twoFactorSub = authRepository.onTwoFactorRequired.listen((data) {
+      add(AuthTwoFactorRequiredEvent(
+        login: data.login, 
+        password: data.password,
+        isBackground: true
+      ));
     });
 
-    on<AuthCheckRequested>((event, emit) async {
-      emit(AuthChecking());
-      try {
-        final user = await checkAuthUsecase.execute();
+    on<AuthCheckEvent>(_onCheckAuth);
+    on<AuthLoginEvent>(_onLogin);
+    on<AuthTwoFactorCodeSubmittedEvent>(_onTwoFactorCodeSubmitted);
+    on<AuthLogoutEvent>(_onLogout);
+    on<AuthTwoFactorResendEvent>(_onTwoFactorCodeResend);
+    on<AuthTwoFactorRequiredEvent>(_onTwoFactorRequired);
+  }
 
-        if (user == null) {
-          emit(Unauthenticated());
-          return;
-        }
+  @override
+  Future<void> close() {
+    _twoFactorSub?.cancel();
+    return super.close();
+  }
 
-        try {
-          await authUpdateUseCase.execute();
-        } catch (e) {
-          if (e is DioException && e.response?.statusCode == 401) {
-            emit(Unauthenticated());
-            return;
-          }
-        }
-        emit(AuthSuccess(user));
-      } catch (e) {
-        emit(Unauthenticated());
+  Future<void> _onCheckAuth(
+    AuthCheckEvent event,
+    Emitter<AuthState> emit
+  ) async {
+    emit(AuthCheckingState());
+    try {
+      final user = await checkAuthUsecase.execute();
+
+      if (user == null) {
+        emit(AuthLoginState());
+        return;
       }
-    });
+      emit(AuthentificatedState(user));
+    } catch (e) {
+      emit(AuthLoginState());
+    }
+  }
 
-    on<LogoutRequested>((event, emit) async {
-      await logoutUsecase.execute();
-      emit(Unauthenticated());
-    });
+  Future<void> _onTwoFactorRequired(
+    AuthTwoFactorRequiredEvent event,
+    Emitter<AuthState> emit
+  ) async {
+    emit(AuthTwoFactorState(
+      login: event.login, 
+      password: event.password,
+      isBackground: event.isBackground
+    ));
+  }
 
-    on<AuthUpdateRequested>((event, emit) async {
-      try {
-        await authUpdateUseCase.execute();
-      } catch (e) {
-        emit(Unauthenticated());
-      }
-    },);
+  Future<void> _onLogin(
+    AuthLoginEvent event,
+    Emitter<AuthState> emit
+  ) async {
+    emit(AuthLoginState(isLoading: true));
+    try {
+      final user = await loginUseCase.execute(event.login, event.password);
+      emit(AuthentificatedState(user));
+    } on TwoFactorRequiredException catch (_) {
+      add(AuthTwoFactorRequiredEvent(
+        login: event.login, 
+        password: event.password,
+        isBackground: false
+      ));
+    } on AuthInvalidCredentialsException catch (_) {
+      emit(AuthLoginState(isLoading: false, errorMessage: 'Неверный логин или пароль'));
+    }
+    catch (exception) {
+      emit(AuthLoginState(isLoading: false, errorMessage: 'Ошибка подключения'));
+    }
+  }
 
-    on<TwoFactorCodeSubmitted>((event, emit) async {
-      final current = state as AuthRequiresTwoFactor;
+  Future<void> _onTwoFactorCodeResend(
+    AuthTwoFactorResendEvent event,
+    Emitter<AuthState> emit
+  ) async {
+    final current = state;
+    if (current is! AuthTwoFactorState) return;
 
-      emit(current.copyWith(isVerifying: true));
+    try {
+      await loginUseCase.execute(current.login, current.password);
+    } on TwoFactorRequiredException {
+      // Ожидаемо — код отправлен заново, ничего не делаем
+    } catch (e) {
+      emit(current.copyWith(error: 'Не удалось отправить код'));
+    }
+  }
 
-      try {
-        final user = await authByCodeUseCase.execute(
-          login: current.login,
-          password: current.password,
-          code: event.code,
-        );
+  Future<void> _onLogout(
+    AuthLogoutEvent event,
+    Emitter<AuthState> emit
+  ) async {
+    await logoutUsecase.execute();
+    emit(UnauthenticatedState());
+  }
 
-        emit(AuthSuccess(user));
+  Future<void> _onTwoFactorCodeSubmitted(
+    AuthTwoFactorCodeSubmittedEvent event,
+    Emitter<AuthState> emit
+  ) async {
+    final currentState = state as AuthTwoFactorState;
+    emit(currentState.copyWith(isLoading: true, clearError: true));
 
-      } catch (_) {
-        emit(current.copyWith(
-          isVerifying: false,
-          error: "Неверный код",
-        ));
-      }
-    });
+    try {
+      final user = await authByCodeUseCase.execute(
+        login: currentState.login,
+        password: currentState.password,
+        code: event.code,
+      );
+
+      emit(AuthentificatedState(user));
+
+    } catch (_) {
+      emit(currentState.copyWith(
+        isLoading: false,
+        error: "Неверный код",
+      ));
+    }
   }
 }

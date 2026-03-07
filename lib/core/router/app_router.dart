@@ -46,24 +46,36 @@ class AppRouter {
       final authState = authBloc.state;
       final location = state.matchedLocation;
 
-      if (authState is AuthInitial || authState is AuthChecking
-          || !splashController.animationDone) {
-        return location == '/splash' ? null : '/splash';
+      if (authState is AuthInitialState ||
+          authState is AuthCheckingState ||
+          !splashController.animationDone) {
+        return location == "/splash" ? null : "/splash";
+      } 
+
+      if (location == "/splash") {
+        if (authState is AuthentificatedState) return "/schedule";
+        return "/login";
       }
 
-      if (location == '/splash') {
-        return authState is AuthSuccess ? '/schedule' : '/login';
+      if (authState is AuthTwoFactorState) {
+        return location == "/two-factor" ? null : "/two-factor";
       }
 
-      if (authState is AuthRequiresTwoFactor && location != '/two-factor') {
-        return "/two-factor";
+      if (authState is AuthLoginState && authState.isLoading) {
+        return null;
       }
 
-      final isLoggedIn = authState is AuthSuccess;
-      final isOnLogin = location == '/login';
+      if (authState is AuthentificatedState) {
+        if (location == "/login" || location == "/two-factor") {
+          return "/schedule";
+        }
+        return null;
+      }
 
-      if (!isLoggedIn && !isOnLogin) return '/login';
-      if (isLoggedIn && isOnLogin) return '/schedule';
+      if (authState is AuthLoginState || authState is UnauthenticatedState) {
+        if (location == '/login') return null;
+        return '/login';
+      }
 
       return null;
     },

@@ -22,7 +22,6 @@ class ApiClient {
       },
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
-          print('401 caught for: ${error.requestOptions.path}');
           final requestPath = error.requestOptions.path;
 
           if (requestPath.contains('/auth') ||

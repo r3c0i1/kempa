@@ -32,7 +32,7 @@ class _KempaAppState extends State<KempaApp> {
   @override
   void initState() {
     super.initState();
-    _authBloc = di.sl.get<AuthBloc>()..add(AuthCheckRequested());
+    _authBloc = di.sl.get<AuthBloc>()..add(AuthCheckEvent());
     _themeBloc = di.sl.get<ThemeBloc>();
     _router = AppRouter(_authBloc, di.sl.get<SplashController>()).router;
   }

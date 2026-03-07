@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:kempa/core/extensions/context_extensions.dart';
+import 'package:kempa/core/theme/app_text_styles.dart';
 import 'package:kempa/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:kempa/features/auth/presentation/bloc/auth_event.dart';
 import 'package:kempa/features/auth/presentation/bloc/auth_state.dart';
@@ -28,7 +30,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthFailure) {
+        if (state is AuthLoginState && state.errorMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               behavior: SnackBarBehavior.floating,
@@ -46,9 +48,9 @@ class _LoginPageState extends State<LoginPage> {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      state.message,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onErrorContainer,
+                      state.errorMessage!,
+                      style: context.textTheme.bodyMedium?.copyWith(
+                        color: context.colors.onErrorContainer,
                       ),
                     ),
                   ),
@@ -64,7 +66,7 @@ class _LoginPageState extends State<LoginPage> {
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: 400),
               child: Padding(
-                padding: EdgeInsets.all(40),
+                padding: EdgeInsets.all(24),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -76,32 +78,16 @@ class _LoginPageState extends State<LoginPage> {
                           offset: Offset(12, 0),
                           child: Text(
                             "1",
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w400,
-                              fontSize: 72,
-                              height: 1.2,
-                            ),
+                            style: AppTextStyles.logoPrimary
                           ),
                         ),
                         Text(
                           "{",
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
-                            fontSize: 72,
-                            height: 1.2,
-                          ),
+                          style: AppTextStyles.logoPrimary
                         ),
                         Text(
                           "емГУ",
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
-                            fontStyle: FontStyle.normal,
-                            fontSize: 56,
-                            height: 1.2,
-                          ),
+                          style: AppTextStyles.logoSecondary
                         ),
                         SizedBox(width: 12),
                       ],
@@ -116,13 +102,6 @@ class _LoginPageState extends State<LoginPage> {
                           borderSide: BorderSide.none,
                         ),
                         hintText: "Логин",
-                        hintStyle: TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                          fontStyle: FontStyle.normal,
-                          fontSize: 16,
-                          height: 1.2,
-                        ),
                         contentPadding: EdgeInsets.symmetric(horizontal: 16),
                         prefixIcon: Icon(Icons.account_circle_outlined),
                       ),
@@ -139,13 +118,6 @@ class _LoginPageState extends State<LoginPage> {
                           borderSide: BorderSide.none,
                         ),
                         hintText: "Пароль",
-                        hintStyle: TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                          fontStyle: FontStyle.normal,
-                          fontSize: 16,
-                          height: 1.2,
-                        ),
                         contentPadding: EdgeInsets.symmetric(horizontal: 16),
                         prefixIcon: Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
@@ -167,14 +139,14 @@ class _LoginPageState extends State<LoginPage> {
                       width: double.infinity,
                       child: BlocBuilder<AuthBloc, AuthState>(
                         builder: (context, state) {
-                          final isLoading = state is AuthLoading;
+                          final isLoading = state is AuthLoginState && state.isLoading;
 
                           return FilledButton(
                             onPressed: isLoading
                                 ? null
                                 : () {
                                     context.read<AuthBloc>().add(
-                                      LoginRequested(
+                                      AuthLoginEvent(
                                         login: _loginController.text,
                                         password: _passwordController.text,
                                       ),
@@ -184,12 +156,7 @@ class _LoginPageState extends State<LoginPage> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              padding: EdgeInsets.symmetric(horizontal: 32),
-                              textStyle: TextStyle(
-                                fontSize: 16,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w500,
-                              ),
+                              padding: EdgeInsets.symmetric(horizontal: 16),
                             ),
                             child: AnimatedSwitcher(
                               duration: Duration(milliseconds: 200),

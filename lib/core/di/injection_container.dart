@@ -9,7 +9,6 @@ import 'package:kempa/features/academic/domain/usecases/get_faculties_usecase.da
 import 'package:kempa/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:kempa/features/auth/domain/repositories/auth_repository.dart';
 import 'package:kempa/features/auth/domain/usecases/auth_by_code_usecase.dart';
-import 'package:kempa/features/auth/domain/usecases/auth_update_usecase.dart';
 import 'package:kempa/features/auth/domain/usecases/check_auth_usecase.dart';
 import 'package:kempa/features/auth/domain/usecases/logout_usecase.dart';
 import 'package:kempa/features/auth/presentation/pages/splash_screen.dart';
@@ -34,7 +33,7 @@ Future<void> init() async {
     loginUseCase: sl(), 
     checkAuthUsecase: sl(),
     logoutUsecase: sl(),
-    authUpdateUseCase: sl(),
+    authRepository: sl(),
     authByCodeUseCase: sl()
   ));
 
@@ -43,8 +42,6 @@ Future<void> init() async {
   sl.registerLazySingleton(() => CheckAuthUsecase(sl()));
 
   sl.registerLazySingleton(() => LogoutUsecase(sl()));
-
-  sl.registerLazySingleton(() => AuthUpdateUseCase(sl()));
 
   sl.registerLazySingleton(() => AuthByCodeUsecase(sl()));
 

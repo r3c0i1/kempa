@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:kempa/core/network/token_manager.dart';
 import 'package:kempa/features/auth/domain/exceptions/two_factor_required_exception.dart';
 
@@ -21,15 +23,13 @@ class AuthRepositoryImpl implements AuthRepository {
       if (response.twoFactorAuthEnabled == true && response.accessToken == null) {
         throw TwoFactorRequiredException();
       }
-      if (response.accessToken != null) {
+      if (response.accessToken != null && response.userInfo != null) {
         await tokenManager.saveTokens(
           access: response.accessToken!,
           refresh: response.refreshToken!,
         );
         await tokenManager.saveCredentials(login: login, password: password);
-        if (response.userInfo != null) {
-          await localDataSource.cacheUser(response.userInfo!);
-        }
+        await localDataSource.cacheUser(response.userInfo!);
         return response.userInfo!.toEntity();
       }
       throw Exception('Неизвестная ошибка авторизации');
@@ -59,19 +59,20 @@ class AuthRepositoryImpl implements AuthRepository {
     final response = await remoteDataSource.authByCode(login, code);
     
     if (response.success) {
-      if (response.accessToken != null) {
+      if (response.accessToken != null && response.userInfo != null) {
         await tokenManager.saveTokens(
           access: response.accessToken!,
           refresh: response.refreshToken!,
         );
         await tokenManager.saveCredentials(login: login, password: password);
-        if (response.userInfo != null) {
-          await localDataSource.cacheUser(response.userInfo!);
-        }
+        await localDataSource.cacheUser(response.userInfo!);
         return response.userInfo!.toEntity();
       }
       throw Exception('Неизвестная ошибка авторизации');
     }
     throw Exception('Неверный код');
   }
+  
+  @override
+  Stream<({String login, String password})> get onTwoFactorRequired => tokenManager.onTwoFactorRequired;
 }

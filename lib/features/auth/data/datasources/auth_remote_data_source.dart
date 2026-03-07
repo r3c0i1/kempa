@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:kempa/core/network/token_manager.dart';
+import 'package:kempa/features/auth/domain/exceptions/auth_invalid_credentials_exception.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../models/auth_response_model.dart';
@@ -27,7 +28,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } on DioException catch (e) {
       switch (e.response?.statusCode){
         case 401:
-          throw Exception("Неверный логин или пароль");
+          throw AuthInvalidCredentialsException();
         default:
           throw Exception("Ошибка подключения");
       }

@@ -3,12 +3,20 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:kempa/core/debug/debug_log.dart';
+import 'package:kempa/features/auth/domain/exceptions/two_factor_required_exception.dart';
 
 class TokenManager {
   final FlutterSecureStorage _storage;
   Completer<void>? _refreshCompleter;
+  
+  final _twoFactorController = StreamController<({String login, String password})>.broadcast();
+  Stream<({String login, String password})> get onTwoFactorRequired => _twoFactorController.stream;
 
   TokenManager(this._storage);
+
+  void dispose(){
+    _twoFactorController.close();
+  }
 
   Future<void> saveTokens({
     required String access,
@@ -31,7 +39,6 @@ class TokenManager {
 
   Future<void> clearTokens() async {
     DebugLog.instance.log('=== CLEAR TOKENS CALLED ===');
-    // DebugLog.instance.log(StackTrace.current.toString());
     await _storage.delete(key: 'accessToken');
     await _storage.delete(key: 'refreshToken');
   }
@@ -60,18 +67,21 @@ class TokenManager {
     _refreshCompleter = Completer();
 
     try {
-      // Шаг 1: пробуем refresh
       await _tryRefresh();
       _refreshCompleter!.complete();
     } catch (e) {
-      // Шаг 2: refresh не удался — пробуем re-login
       try {
         await _tryReLogin();
         _refreshCompleter!.complete();
-      } catch (reLoginError) {
-        // Оба способа не сработали
+      } on TwoFactorRequiredException catch (exception) {
+        final login = await _storage.read(key: 'login');
+        final password = await _storage.read(key: 'password');
+        _twoFactorController.add((login: login!, password: password!));
+        _refreshCompleter!.completeError(exception);
+        rethrow;
+      } catch (exception) {
         await clearAll();
-        _refreshCompleter!.completeError(reLoginError);
+        _refreshCompleter!.completeError(exception);
         rethrow;
       }
     } finally {
@@ -132,10 +142,19 @@ class TokenManager {
     final data = res.data as Map<String, dynamic>;
 
     if (data['success'] == true) {
-      await saveTokens(
-        access: data['accessToken'],
-        refresh: data['refreshToken'],
-      );
+
+      if (data['twoFactorAuthEnabled'] == true && data['accessToken'] == null) {
+        throw TwoFactorRequiredException();
+      }
+
+      if (data['accessToken'] != null){
+        await saveTokens(
+          access: data['accessToken'],
+          refresh: data['refreshToken'],
+        );
+      } else {
+        throw Exception("No tokens in response");
+      }
     } else {
       throw Exception('Re-login failed');
     }

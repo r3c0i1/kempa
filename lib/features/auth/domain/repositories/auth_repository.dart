@@ -15,4 +15,6 @@ abstract class AuthRepository {
 
   Future<void> logout();
   Future<void> updateAuth();
+
+  Stream<({String login, String password})> get onTwoFactorRequired;
 }

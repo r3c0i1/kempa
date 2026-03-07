@@ -15,7 +15,7 @@ class ProfilePage extends StatelessWidget {
     return Scaffold(
       body: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
-          if (state is! AuthSuccess) {
+          if (state is! AuthentificatedState) {
             return Center(child: CircularProgressIndicator());
           }
 
@@ -87,7 +87,7 @@ class ProfilePage extends StatelessWidget {
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
-              context.read<AuthBloc>().add(LogoutRequested());
+              context.read<AuthBloc>().add(AuthLogoutEvent());
             },
             child: Text('Выйти'),
           ),
