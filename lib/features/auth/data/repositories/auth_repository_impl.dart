@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:kempa/core/network/token_manager.dart';
+import 'package:kempa/features/auth/domain/exceptions/two_factor_required_exception.dart';
 
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -16,16 +19,20 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<UserEntity> login({required String login, required String password}) async {
     final response = await remoteDataSource.login(login, password);
     
-    if (response.success && response.accessToken != null) {
-      await tokenManager.saveTokens(
-        access: response.accessToken!,
-        refresh: response.refreshToken!,
-      );
-      await tokenManager.saveCredentials(login: login, password: password);
-      if (response.userInfo != null) {
-        await localDataSource.cacheUser(response.userInfo!);
+    if (response.success) {
+      if (response.twoFactorAuthEnabled == true && response.accessToken == null) {
+        throw TwoFactorRequiredException();
       }
-      return response.userInfo!.toEntity();
+      if (response.accessToken != null && response.userInfo != null) {
+        await tokenManager.saveTokens(
+          access: response.accessToken!,
+          refresh: response.refreshToken!,
+        );
+        await tokenManager.saveCredentials(login: login, password: password);
+        await localDataSource.cacheUser(response.userInfo!);
+        return response.userInfo!.toEntity();
+      }
+      throw Exception('Неизвестная ошибка авторизации');
     }
     throw Exception('Неверный логин или пароль');
   }
@@ -46,4 +53,26 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> updateAuth() async {
     return await remoteDataSource.updateTokens();
   }
+  
+  @override
+  Future<UserEntity> authByCode({required String login, required String password, required String code}) async {
+    final response = await remoteDataSource.authByCode(login, code);
+    
+    if (response.success) {
+      if (response.accessToken != null && response.userInfo != null) {
+        await tokenManager.saveTokens(
+          access: response.accessToken!,
+          refresh: response.refreshToken!,
+        );
+        await tokenManager.saveCredentials(login: login, password: password);
+        await localDataSource.cacheUser(response.userInfo!);
+        return response.userInfo!.toEntity();
+      }
+      throw Exception('Неизвестная ошибка авторизации');
+    }
+    throw Exception('Неверный код');
+  }
+  
+  @override
+  Stream<({String login, String password})> get onTwoFactorRequired => tokenManager.onTwoFactorRequired;
 }

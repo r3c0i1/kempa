@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kempa/core/layout/main_layout.dart';
 import 'package:kempa/features/auth/presentation/pages/splash_screen.dart';
+import 'package:kempa/features/auth/presentation/pages/two_factor_page.dart';
 import 'package:kempa/features/profile/presentation/pages/profile_page.dart';
 import 'package:kempa/features/profile/presentation/pages/settings_page.dart';
 import 'package:kempa/features/schedule/presentation/pages/schedule_page.dart';
@@ -45,20 +46,36 @@ class AppRouter {
       final authState = authBloc.state;
       final location = state.matchedLocation;
 
-      if (authState is AuthInitial || authState is AuthChecking
-          || !splashController.animationDone) {
-        return location == '/splash' ? null : '/splash';
+      if (authState is AuthInitialState ||
+          authState is AuthCheckingState ||
+          !splashController.animationDone) {
+        return location == "/splash" ? null : "/splash";
+      } 
+
+      if (location == "/splash") {
+        if (authState is AuthentificatedState) return "/schedule";
+        return "/login";
       }
 
-      if (location == '/splash') {
-        return authState is AuthSuccess ? '/schedule' : '/login';
+      if (authState is AuthTwoFactorState) {
+        return location == "/two-factor" ? null : "/two-factor";
       }
 
-      final isLoggedIn = authState is AuthSuccess;
-      final isOnLogin = location == '/login';
+      if (authState is AuthLoginState && authState.isLoading) {
+        return null;
+      }
 
-      if (!isLoggedIn && !isOnLogin) return '/login';
-      if (isLoggedIn && isOnLogin) return '/schedule';
+      if (authState is AuthentificatedState) {
+        if (location == "/login" || location == "/two-factor") {
+          return "/schedule";
+        }
+        return null;
+      }
+
+      if (authState is AuthLoginState || authState is UnauthenticatedState) {
+        if (location == '/login') return null;
+        return '/login';
+      }
 
       return null;
     },
@@ -71,7 +88,7 @@ class AppRouter {
     routes: [
       GoRoute(path: '/splash', builder: (context, state) => SplashPage()),
       GoRoute(path: '/login', builder: (context, state) => LoginPage()),
-      // GoRoute(path: '/schedule', builder: (context, state) => SchedulePage()),
+      GoRoute(path: "/two-factor", builder: (context, state) => TwoFactorPage()),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => MainLayout(child: child),

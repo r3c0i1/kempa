@@ -1,0 +1,3 @@
+class TwoFactorRequiredException implements Exception {
+
+}

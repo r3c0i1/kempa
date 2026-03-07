@@ -69,12 +69,14 @@ class AuthResponseModel {
   final String? accessToken;
   final String? refreshToken;
   final UserInfoModel? userInfo;
+  final bool? twoFactorAuthEnabled;
 
   AuthResponseModel({
     required this.success,
     this.accessToken,
     this.refreshToken,
-    this.userInfo
+    this.userInfo,
+    this.twoFactorAuthEnabled
   });
 
   factory AuthResponseModel.fromJson(Map<String, dynamic> json) => 

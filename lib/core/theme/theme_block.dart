@@ -5,15 +5,6 @@ enum AppThemeMode {
   system,
   light,
   dark,
-  // Секретные
-  helloKitty,
-  hacker,
-  vaporwave,
-  sakura,
-  pepe,
-  ocean,
-  halloween,
-  doge,
 }
 
 // Мета-данные тем
@@ -45,54 +36,6 @@ class ThemeMeta {
       name: 'Тёмная',
       emoji: '🌙',
       description: 'Классическая тёмная',
-    ),
-    AppThemeMode.helloKitty: ThemeMeta(
-      name: 'Hello Kitty',
-      emoji: '🎀',
-      description: 'Кавайная тема',
-      isSecret: true,
-    ),
-    AppThemeMode.hacker: ThemeMeta(
-      name: 'Hacker',
-      emoji: '🤓',
-      description: 'I\'m in',
-      isSecret: true,
-    ),
-    AppThemeMode.vaporwave: ThemeMeta(
-      name: 'Vaporwave',
-      emoji: '👾',
-      description: 'A E S T H E T I C',
-      isSecret: true,
-    ),
-    AppThemeMode.sakura: ThemeMeta(
-      name: 'Sakura',
-      emoji: '🌸',
-      description: 'Цветущая вишня',
-      isSecret: true,
-    ),
-    AppThemeMode.pepe: ThemeMeta(
-      name: 'Pepe',
-      emoji: '🐸',
-      description: 'Feels good man',
-      isSecret: true,
-    ),
-    AppThemeMode.ocean: ThemeMeta(
-      name: 'Ocean',
-      emoji: '🌊',
-      description: 'Глубины океана',
-      isSecret: true,
-    ),
-    AppThemeMode.halloween: ThemeMeta(
-      name: 'Halloween',
-      emoji: '🎃',
-      description: 'Spooky scary',
-      isSecret: true,
-    ),
-    AppThemeMode.doge: ThemeMeta(
-      name: 'Doge',
-      emoji: '🐕',
-      description: 'Such theme. Much wow.',
-      isSecret: true,
     ),
   };
 }

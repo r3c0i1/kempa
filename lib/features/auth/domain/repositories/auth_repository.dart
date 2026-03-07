@@ -5,9 +5,16 @@ abstract class AuthRepository {
     required String login,
     required String password
   });
+  Future<UserEntity> authByCode({
+    required String login,
+    required String password,
+    required String code
+  });
 
   Future<UserEntity?> getAuthenticatedUser();
 
   Future<void> logout();
   Future<void> updateAuth();
+
+  Stream<({String login, String password})> get onTwoFactorRequired;
 }

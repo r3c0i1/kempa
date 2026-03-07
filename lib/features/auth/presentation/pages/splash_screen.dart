@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kempa/core/di/injection_container.dart';
+import 'package:kempa/core/extensions/context_extensions.dart';
+import 'package:kempa/core/theme/app_text_styles.dart';
 
 class SplashController extends ChangeNotifier {
   bool _animationDone = false;
@@ -145,14 +147,9 @@ class _SplashPageState extends State<SplashPage>
                   position: _oneSlide,
                   child: Transform.translate(
                     offset: const Offset(12, 0),
-                    child: const Text(
+                    child: Text(
                       "1",
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                        fontSize: 72,
-                        height: 1.2,
-                      ),
+                      style: AppTextStyles.logoPrimary
                     ),
                   ),
                 ),
@@ -167,28 +164,18 @@ class _SplashPageState extends State<SplashPage>
                       ),
                     );
                   },
-                  child: const Text(
+                  child: Text(
                     "{",
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
-                      fontSize: 72,
-                      height: 1.2,
-                    ),
+                    style: AppTextStyles.logoPrimary
                   ),
                 ),
                 SlideTransition(
                   position: _emguSlide,
                   child: FadeTransition(
                     opacity: _textOpacity,
-                    child: const Text(
+                    child: Text(
                       "емГУ",
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                        fontSize: 56,
-                        height: 1.2,
-                      ),
+                      style: AppTextStyles.logoSecondary
                     ),
                   ),
                 ),
