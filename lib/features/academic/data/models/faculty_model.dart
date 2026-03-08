@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:kempa/features/academic/domain/entities/faculty.dart';
 
 part 'faculty_model.g.dart';
 
@@ -14,6 +15,10 @@ class FacultyModel {
     required this.id,
     required this.faculty
   });
+
+  Faculty toEntity(){
+    return Faculty(id: id, name: faculty);
+  }
 
   factory FacultyModel.fromJson(Map<String, dynamic> json) => 
       _$FacultyModelFromJson(json);

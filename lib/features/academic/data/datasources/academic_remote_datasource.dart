@@ -1,10 +1,14 @@
 import 'package:kempa/core/network/api_client.dart';
+import 'package:kempa/features/academic/data/models/auditory_model.dart';
 import 'package:kempa/features/academic/data/models/faculty_model.dart';
 import 'package:kempa/features/academic/data/models/group_model.dart';
+import 'package:kempa/features/academic/data/models/teacher_model.dart';
 
 abstract class AcademicRemoteDatasource {
   Future<List<FacultyModel>> getFaculties();
   Future<List<GroupModel>> getGroups(int facultyId);
+  Future<List<AuditoryModel>> getAuditories();
+  Future<List<TeacherModel>> getTeachers();
 }
 
 class AcademicRemoteDatasourceImpl implements AcademicRemoteDatasource {
@@ -44,6 +48,38 @@ class AcademicRemoteDatasourceImpl implements AcademicRemoteDatasource {
 
     return result
         .map((json) => GroupModel.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+  
+  @override
+  Future<List<AuditoryModel>> getAuditories() async {
+    final response = await _client.get("/schedule/integration/scheduleAuditorList");
+    final data = response.data as Map<String, dynamic>;
+
+    if(data['success'] != true){
+      throw Exception(data['message'] ?? 'Failed to load auditories');
+    }
+
+    final List<dynamic> result = data['auditorList'];
+
+    return result
+        .map((json) => AuditoryModel.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+  
+  @override
+  Future<List<TeacherModel>> getTeachers() async {
+    final response = await _client.get("/schedule/integration/teacherList");
+    final data = response.data as Map<String, dynamic>;
+
+    if(data['success'] != true){
+      throw Exception(data['message'] ?? 'Failed to load teachers');
+    }
+
+    final List<dynamic> result = data['teacherList'];
+
+    return result
+        .map((json) => TeacherModel.fromJson(json as Map<String, dynamic>))
         .toList();
   }
 }

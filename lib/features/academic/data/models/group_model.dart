@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:kempa/features/academic/domain/entities/group.dart';
 
 part 'group_model.g.dart';
 
@@ -25,6 +26,15 @@ class GroupModel {
     this.startDate,
     this.endDate
   });
+
+  Group toEntity(){
+    return Group(
+      id: id, 
+      name: name, 
+      specialization: specName, 
+      learnForm: learnForm
+    );
+  }
 
   factory GroupModel.fromJson(Map<String, dynamic> json) => 
       _$GroupModelFromJson(json);
