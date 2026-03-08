@@ -45,6 +45,7 @@ dependencies:
   go_router: ^17.1.0
   flutter_native_splash: ^2.4.7
   pinput: ^6.0.2
+  rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:

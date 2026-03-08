@@ -1,12 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:kempa/core/network/token_manager.dart';
+import 'package:kempa/core/network/auth_storage.dart';
 
 class ApiClient {
   final Dio _dio = Dio();
-  final TokenManager _tokenManager;
+  final AuthStorage _storage;
+  final Future<bool> Function() onTokenExpired; 
 
-  ApiClient(this._tokenManager) {
+  ApiClient(this._storage, this.onTokenExpired) {
     _dio.options.baseUrl = 'https://api-next.kemsu.ru/api';
     _dio.options.headers = {
       'Origin': 'https://api-next.kemsu.ru'
@@ -14,7 +15,7 @@ class ApiClient {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _tokenManager.getAccessToken();
+        final token = await _storage.getAccessToken();
         debugPrint('TOKEN: ${token != null ? "exists" : "NULL"}');
         debugPrint('PATH: ${options.path}');
         if (token != null) options.headers['x-access-token'] = token;
@@ -22,22 +23,19 @@ class ApiClient {
       },
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
-          final requestPath = error.requestOptions.path;
 
-          if (requestPath.contains('/auth') ||
-              requestPath.contains('/refresh-token')) {
-            return handler.next(error);
-          }
-
-          try {
-            await _tokenManager.refreshTokens();
-            final newToken = await _tokenManager.getAccessToken();
-            if (newToken != null) {
-              error.requestOptions.headers['x-access-token'] = newToken;
-              return handler.resolve(await _dio.fetch(error.requestOptions));
+          final isRestored = await onTokenExpired();
+          
+          if (isRestored) {
+            final newToken = await _storage.getAccessToken();
+            error.requestOptions.headers['x-access-token'] = newToken;
+            
+            try {
+              final response = await _dio.fetch(error.requestOptions);
+              return handler.resolve(response);
+            } catch (e) {
+              return handler.next(error);
             }
-          } catch(_) {
-            return handler.next(error);
           }
         }
         return handler.next(error);

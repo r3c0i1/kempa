@@ -1,78 +1,143 @@
 import 'dart:async';
+import 'package:kempa/features/auth/domain/entities/auth_session_state.dart';
+import 'package:kempa/features/auth/domain/repositories/auth_repository.dart';
+import 'package:rxdart/rxdart.dart';
 
-import 'package:kempa/core/network/token_manager.dart';
-import 'package:kempa/features/auth/domain/exceptions/two_factor_required_exception.dart';
-
+import 'package:kempa/core/network/auth_storage.dart';
 import '../../domain/entities/user_entity.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../datasources/auth_local_data_source.dart';
+import '../../domain/entities/auth_result.dart';
 import '../datasources/auth_remote_data_source.dart';
+import '../datasources/auth_local_data_source.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  final AuthRemoteDataSource remoteDataSource;
-  final AuthLocalDataSource localDataSource;
-  final TokenManager tokenManager;
+  final AuthRemoteDataSource _remote;
+  final AuthLocalDataSource _local; 
+  final AuthStorage _storage;       
 
-  AuthRepositoryImpl({required this.remoteDataSource, required this.localDataSource, required this.tokenManager});
+  final _sessionSubject = BehaviorSubject<AuthSessionState>.seeded(const SessionNone());
+
+  Completer<bool>? _refreshCompleter;
+
+  AuthRepositoryImpl(this._remote, this._local, this._storage);
 
   @override
-  Future<UserEntity> login({required String login, required String password}) async {
-    final response = await remoteDataSource.login(login, password);
-    
-    if (response.success) {
-      if (response.twoFactorAuthEnabled == true && response.accessToken == null) {
-        throw TwoFactorRequiredException();
-      }
-      if (response.accessToken != null && response.userInfo != null) {
-        await tokenManager.saveTokens(
-          access: response.accessToken!,
-          refresh: response.refreshToken!,
-        );
-        await tokenManager.saveCredentials(login: login, password: password);
-        await localDataSource.cacheUser(response.userInfo!);
-        return response.userInfo!.toEntity();
-      }
-      throw Exception('Неизвестная ошибка авторизации');
-    }
-    throw Exception('Неверный логин или пароль');
+  Stream<AuthSessionState> get sessionStream => _sessionSubject.stream;
+  
+  @override
+  UserEntity? get currentUser {
+    final state = _sessionSubject.value;
+    if (state is SessionActive) return state.user;
+    return null;
   }
 
   @override
-  Future<UserEntity?> getAuthenticatedUser() async {
-    final user = await localDataSource.getCachedUser();
-    return user?.toEntity();
+  Future<AuthResult> login({required String login, required String password}) async {
+    try {
+      final res = await _remote.login(login, password);
+      
+      if (!res.success) return const AuthFailure('Неверный логин или пароль');
+      
+      if (res.twoFactorAuthEnabled == true && res.accessToken == null) {
+        return AuthRequires2FA(login: login, password: password);
+      }
+
+      await _saveSessionAndUser(res, login, password);
+      return AuthSuccess(currentUser!);
+      
+    } catch (e) {
+      return const AuthFailure('Ошибка сети');
+    }
+  }
+
+  @override
+  Future<AuthResult> authByCode({required String login, required String password, required String code}) async {
+    try {
+      final res = await _remote.authByCode(login, code);
+      if (!res.success) return const AuthFailure('Неверный код');
+      
+      await _saveSessionAndUser(res, login, password);
+      return AuthSuccess(currentUser!);
+    } catch (e) {
+      return const AuthFailure('Ошибка сети');
+    }
+  }
+
+  @override
+  Future<void> checkAuthStatus() async {
+    final token = await _storage.getAccessToken();
+    final cachedUser = await _local.getUser();
+
+    if (token != null && cachedUser != null) {
+      _sessionSubject.add(SessionActive(cachedUser)); 
+    } else {
+      await logout(); 
+    }
   }
 
   @override
   Future<void> logout() async {
-    await tokenManager.clearAll();
-    await localDataSource.clear();
+    await _storage.clearAll();
+    await _local.clearUser();
+
+    _sessionSubject.add(const SessionNone());
   }
-  
+
   @override
-  Future<void> updateAuth() async {
-    return await remoteDataSource.updateTokens();
-  }
-  
-  @override
-  Future<UserEntity> authByCode({required String login, required String password, required String code}) async {
-    final response = await remoteDataSource.authByCode(login, code);
-    
-    if (response.success) {
-      if (response.accessToken != null && response.userInfo != null) {
-        await tokenManager.saveTokens(
-          access: response.accessToken!,
-          refresh: response.refreshToken!,
-        );
-        await tokenManager.saveCredentials(login: login, password: password);
-        await localDataSource.cacheUser(response.userInfo!);
-        return response.userInfo!.toEntity();
+  Future<bool> refreshSession() async {
+    if (_refreshCompleter != null) return _refreshCompleter!.future;
+    _refreshCompleter = Completer<bool>();
+
+    try {
+      final access = await _storage.getAccessToken();
+      final refresh = await _storage.getRefreshToken();
+      
+      if (access != null && refresh != null) {
+        final res = await _remote.refreshToken(access, refresh);
+        if (res.success && res.accessToken != null) {
+          await _storage.saveTokens(res.accessToken!, res.refreshToken!);
+          _refreshCompleter!.complete(true);
+          return true;
+        }
       }
-      throw Exception('Неизвестная ошибка авторизации');
+
+      final creds = await _storage.getCredentials();
+      if (creds != null) {
+        final res = await _remote.login(creds.login, creds.password);
+        
+        if (res.twoFactorAuthEnabled == true && res.accessToken == null) {
+          _sessionSubject.add(SessionSuspendedFor2FA(creds.login, creds.password));
+          _refreshCompleter!.complete(false); 
+          return false;
+        }
+
+        if (res.success && res.accessToken != null) {
+          await _saveSessionAndUser(res, creds.login, creds.password);
+          _refreshCompleter!.complete(true);
+          return true;
+        }
+      }
+
+      throw Exception("Session cannot be restored");
+    } catch (e) {
+      await logout();
+      _refreshCompleter!.complete(false);
+      return false;
+    } finally {
+      _refreshCompleter = null;
     }
-    throw Exception('Неверный код');
   }
-  
-  @override
-  Stream<({String login, String password})> get onTwoFactorRequired => tokenManager.onTwoFactorRequired;
+
+  Future<void> _saveSessionAndUser(dynamic res, String login, String pass) async {
+    await _storage.saveTokens(res.accessToken!, res.refreshToken!);
+    await _storage.saveCredentials(login, pass);
+    
+    final user = res.userInfo!.toEntity();
+    await _local.saveUser(user);
+    
+    _sessionSubject.add(SessionActive(user)); 
+  }
+
+  void dispose() {
+    _sessionSubject.close();
+  }
 }

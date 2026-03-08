@@ -1,25 +1,23 @@
 import 'package:dio/dio.dart';
-import 'package:kempa/core/network/token_manager.dart';
 import 'package:kempa/features/auth/domain/exceptions/auth_invalid_credentials_exception.dart';
-
-import '../../../../core/network/api_client.dart';
 import '../models/auth_response_model.dart';
 
 abstract class AuthRemoteDataSource {
   Future<AuthResponseModel> login(String login, String password);
-  Future<void> updateTokens();
   Future<AuthResponseModel> authByCode(String login, String code);
+  Future<AuthResponseModel> refreshToken(String access, String refresh);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
-  final ApiClient _client;
-  final TokenManager _tokenManager;
-  AuthRemoteDataSourceImpl(this._client, this._tokenManager);
+  final Dio _dio = Dio(BaseOptions(
+    baseUrl: 'https://api-next.kemsu.ru/api',
+    headers: {'Origin': 'https://api-next.kemsu.ru'},
+  ));
 
   @override
   Future<AuthResponseModel> login(String login, String password) async {
     try {
-      final response = await _client.post('/auth', data: {
+      final response = await _dio.post('/auth', data: {
         'login': login,
         'password': password,
         "lifetime": "30d"
@@ -36,14 +34,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
   
   @override
-  Future<void> updateTokens() async {
-    await _tokenManager.refreshTokens();
-  }
-  
-  @override
   Future<AuthResponseModel> authByCode(String login, String code) async {
     try {
-      final response = await _client.post('/auth-by-code', data: {
+      final response = await _dio.post('/auth-by-code', data: {
         'login': login,
         'code': code,
         "lifetime": "30d"
@@ -57,5 +50,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           throw Exception("Ошибка подключения");
       }
     }
+  }
+
+  @override
+  Future<AuthResponseModel> refreshToken(String access, String refresh) async {
+    final response = await _dio.post('/refresh-token', data: {
+      'accessToken': access,
+      'refreshToken': refresh,
+      'lifetime': '30d'
+    });
+    return AuthResponseModel.fromJson(response.data);
   }
 }

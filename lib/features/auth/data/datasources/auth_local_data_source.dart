@@ -1,12 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:kempa/features/auth/data/models/auth_response_model.dart';
+import 'package:kempa/features/auth/domain/entities/user_entity.dart';
 
 abstract class AuthLocalDataSource {
-  Future<void> cacheUser(UserInfoModel user);
-  Future<UserInfoModel?> getCachedUser();
-  Future<void> clear();  
+  Future<void> saveUser(UserEntity user);
+  Future<UserEntity?> getUser();
+  Future<void> clearUser();  
 }
 
 class AuthLocalDataSourceImpl implements AuthLocalDataSource {
@@ -16,16 +16,18 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   AuthLocalDataSourceImpl(this.storage);
 
   @override
-  Future<void> clear() => storage.delete(key: 'cachedUser');
-  
-  @override
-  Future<void> cacheUser(UserInfoModel user) async {
-    await storage.write(key: 'cachedUser', value: jsonEncode(user.toJson()));
+  Future<void> clearUser() async {
+    await storage.delete(key: 'user');
   }
   
   @override
-  Future<UserInfoModel?> getCachedUser() async {
-    final data = await storage.read(key: 'cachedUser');
-    return data != null ? UserInfoModel.fromJson(jsonDecode(data)) : null;
+  Future<UserEntity?> getUser() async {
+    final data = await storage.read(key: 'user');
+    return data != null ? UserEntity.fromJson(jsonDecode(data)) : null;
+  }
+  
+  @override
+  Future<void> saveUser(UserEntity user) async {
+    await storage.write(key: 'user', value: jsonEncode(user.toJson()));
   }
 }

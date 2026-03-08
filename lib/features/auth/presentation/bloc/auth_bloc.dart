@@ -1,52 +1,56 @@
 import 'dart:async';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:kempa/features/auth/domain/exceptions/auth_invalid_credentials_exception.dart';
-import 'package:kempa/features/auth/domain/exceptions/two_factor_required_exception.dart';
+import 'package:kempa/features/auth/domain/entities/auth_session_state.dart';
+
 import 'package:kempa/features/auth/domain/repositories/auth_repository.dart';
-import 'package:kempa/features/auth/domain/usecases/auth_by_code_usecase.dart';
-import 'package:kempa/features/auth/domain/usecases/check_auth_usecase.dart';
-import 'package:kempa/features/auth/domain/usecases/logout_usecase.dart';
+import 'package:kempa/features/auth/domain/entities/auth_result.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
-import '../../domain/usecases/login_usecase.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final LoginUseCase loginUseCase;
-  final CheckAuthUsecase checkAuthUsecase;
-  final LogoutUsecase logoutUsecase;
-  final AuthByCodeUsecase authByCodeUseCase;
-
   final AuthRepository authRepository;
-  StreamSubscription? _twoFactorSub;
+  late final StreamSubscription _authSubscription;
 
   AuthBloc({
     required this.authRepository,
-    required this.loginUseCase,
-    required this.checkAuthUsecase,
-    required this.logoutUsecase,
-    required this.authByCodeUseCase
   }) : super(AuthInitialState()) {
-    _twoFactorSub = authRepository.onTwoFactorRequired.listen((data) {
-      add(AuthTwoFactorRequiredEvent(
-        login: data.login, 
-        password: data.password,
-        isBackground: true
-      ));
+    
+    _authSubscription = authRepository.sessionStream.listen((sessionState) {
+      add(AuthSessionStatusChangedEvent(sessionState));
     });
 
     on<AuthCheckEvent>(_onCheckAuth);
+    on<AuthSessionStatusChangedEvent>(_onAuthStatusChanged);
     on<AuthLoginEvent>(_onLogin);
     on<AuthTwoFactorCodeSubmittedEvent>(_onTwoFactorCodeSubmitted);
-    on<AuthLogoutEvent>(_onLogout);
     on<AuthTwoFactorResendEvent>(_onTwoFactorCodeResend);
-    on<AuthTwoFactorRequiredEvent>(_onTwoFactorRequired);
+    on<AuthLogoutEvent>(_onLogout);
   }
 
   @override
   Future<void> close() {
-    _twoFactorSub?.cancel();
+    _authSubscription.cancel();
     return super.close();
+  }
+
+  void _onAuthStatusChanged(
+    AuthSessionStatusChangedEvent event,
+    Emitter<AuthState> emit
+  ) {
+    switch (event.state) {
+      case SessionNone():
+        emit(UnauthenticatedState());
+        
+      case SessionActive(user: final u):
+        emit(AuthentificatedState(u));
+        
+      case SessionSuspendedFor2FA(login: final l, password: final p):
+        emit(AuthTwoFactorState(
+          login: l, 
+          password: p, 
+          isBackground: true
+        ));
+    }
   }
 
   Future<void> _onCheckAuth(
@@ -54,28 +58,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit
   ) async {
     emit(AuthCheckingState());
-    try {
-      final user = await checkAuthUsecase.execute();
-
-      if (user == null) {
-        emit(AuthLoginState());
-        return;
-      }
-      emit(AuthentificatedState(user));
-    } catch (e) {
-      emit(AuthLoginState());
-    }
-  }
-
-  Future<void> _onTwoFactorRequired(
-    AuthTwoFactorRequiredEvent event,
-    Emitter<AuthState> emit
-  ) async {
-    emit(AuthTwoFactorState(
-      login: event.login, 
-      password: event.password,
-      isBackground: event.isBackground
-    ));
+    await authRepository.checkAuthStatus();
   }
 
   Future<void> _onLogin(
@@ -83,20 +66,56 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit
   ) async {
     emit(AuthLoginState(isLoading: true));
-    try {
-      final user = await loginUseCase.execute(event.login, event.password);
-      emit(AuthentificatedState(user));
-    } on TwoFactorRequiredException catch (_) {
-      add(AuthTwoFactorRequiredEvent(
-        login: event.login, 
-        password: event.password,
-        isBackground: false
-      ));
-    } on AuthInvalidCredentialsException catch (_) {
-      emit(AuthLoginState(isLoading: false, errorMessage: 'Неверный логин или пароль'));
+    
+    final result = await authRepository.login(
+      login: event.login, 
+      password: event.password,
+    );
+
+    switch (result) {
+      case AuthSuccess():
+        break;
+        
+      case AuthRequires2FA():
+        emit(AuthTwoFactorState(
+          login: result.login, 
+          password: result.password,
+        ));
+        
+      case AuthFailure():
+        emit(AuthLoginState(
+          isLoading: false, 
+          errorMessage: result.message,
+        ));
     }
-    catch (exception) {
-      emit(AuthLoginState(isLoading: false, errorMessage: 'Ошибка подключения'));
+  }
+
+  Future<void> _onTwoFactorCodeSubmitted(
+    AuthTwoFactorCodeSubmittedEvent event,
+    Emitter<AuthState> emit
+  ) async {
+    final currentState = state;
+    if (currentState is! AuthTwoFactorState) return;
+
+    emit(currentState.copyWith(isLoading: true, clearError: true));
+
+    final result = await authRepository.authByCode(
+      login: currentState.login,
+      password: currentState.password,
+      code: event.code,
+    );
+
+    switch (result) {
+      case AuthSuccess():
+        break;
+      case AuthRequires2FA():
+        // Технически невозможно, но switch требует обработать
+        break; 
+      case AuthFailure():
+        emit(currentState.copyWith(
+          isLoading: false,
+          error: result.message,
+        ));
     }
   }
 
@@ -104,15 +123,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthTwoFactorResendEvent event,
     Emitter<AuthState> emit
   ) async {
-    final current = state;
-    if (current is! AuthTwoFactorState) return;
+    final currentState = state;
+    if (currentState is! AuthTwoFactorState) return;
 
-    try {
-      await loginUseCase.execute(current.login, current.password);
-    } on TwoFactorRequiredException {
-      // Ожидаемо — код отправлен заново, ничего не делаем
-    } catch (e) {
-      emit(current.copyWith(error: 'Не удалось отправить код'));
+    final result = await authRepository.login(
+      login: currentState.login, 
+      password: currentState.password
+    );
+
+    if (result is AuthFailure) {
+      emit(currentState.copyWith(error: 'Не удалось отправить код'));
     }
   }
 
@@ -120,31 +140,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthLogoutEvent event,
     Emitter<AuthState> emit
   ) async {
-    await logoutUsecase.execute();
-    emit(UnauthenticatedState());
-  }
-
-  Future<void> _onTwoFactorCodeSubmitted(
-    AuthTwoFactorCodeSubmittedEvent event,
-    Emitter<AuthState> emit
-  ) async {
-    final currentState = state as AuthTwoFactorState;
-    emit(currentState.copyWith(isLoading: true, clearError: true));
-
-    try {
-      final user = await authByCodeUseCase.execute(
-        login: currentState.login,
-        password: currentState.password,
-        code: event.code,
-      );
-
-      emit(AuthentificatedState(user));
-
-    } catch (_) {
-      emit(currentState.copyWith(
-        isLoading: false,
-        error: "Неверный код",
-      ));
-    }
+    await authRepository.logout();
   }
 }

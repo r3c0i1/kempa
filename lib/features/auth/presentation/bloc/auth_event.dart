@@ -1,4 +1,6 @@
 import 'package:equatable/equatable.dart';
+import 'package:kempa/features/auth/domain/entities/auth_session_state.dart';
+import 'package:kempa/features/auth/domain/entities/user_entity.dart';
 
 abstract class AuthEvent extends Equatable {
   @override
@@ -30,17 +32,7 @@ class AuthLogoutEvent extends AuthEvent {}
 
 class AuthTwoFactorResendEvent extends AuthEvent {}
 
-class AuthTwoFactorRequiredEvent extends AuthEvent {
-  final String login;
-  final String password;
-  final bool isBackground;
-
-  AuthTwoFactorRequiredEvent({
-    required this.login,
-    required this.password,
-    this.isBackground = false
-  });
-
-  @override
-  List<Object?> get props => [login, password, isBackground];
+class AuthSessionStatusChangedEvent extends AuthEvent {
+  final AuthSessionState state;
+  AuthSessionStatusChangedEvent(this.state);
 }
